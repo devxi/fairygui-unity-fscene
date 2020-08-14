@@ -13,8 +13,7 @@ public class Launch : MonoBehaviour
         //先加载公用基础包，因为其他包对基础包有依赖
         UIPackage.AddPackage("UI/PublicPackage00");
         UIPackage.AddPackage("UI/PublicPackage01");
-        FScene.Init();
-        
+
         MatchGameRankScene matchRankScene = FScene.CreateFScene<MatchGameRankScene>(FSceneDefine.MatchSyzzFSceneConfig);
         matchRankScene.Open(FSceneDefine.MatchSyzzFSceneConfig);
     }

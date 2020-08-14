@@ -1,15 +1,20 @@
 ﻿using System;
-using System.Collections;
 using System.Collections.Generic;
 using FairyGUI;
 using JetBrains.Annotations;
 using TreeEditor;
 using UnityEngine;
-using UnityEngine.UIElements;
-using Object = System.Object;
+
 
 namespace LQ
 {
+
+    public enum CloseType
+    {
+        Close,
+        Yes,
+        No,
+    } 
 
     interface IDialog
     {
@@ -28,6 +33,12 @@ namespace LQ
         /// </summary>
         FWindow Show(object param = null, bool closeOther = false, bool showPopEffect = true);
 
+        /// <summary>
+        /// 关闭弹窗
+        /// </summary>
+        /// <param name="type">弹窗关闭原因</param>
+        void Close(CloseType type = CloseType.Close);
+
         bool IsShowEffect { get; set; }
     }
     public class FWindow : FairyGUI.Window, IDialog
@@ -35,12 +46,16 @@ namespace LQ
         
         public static GRoot UIRoot { get; private set; }
         public static bool AutoDestoryAtClosed = true;
-        protected static bool IsInit = false;
-
+        private static bool IsInit = false;
+        
 
         public virtual bool CloseOnClickOutSide { get; set; } = true;
         public virtual ISceneCfg WinDefine { get; set; }
         public bool IsShowEffect { get; set; } = false;
+
+        public GameObject gameObject { get; private set; }
+
+        private CloseType closeType = CloseType.Close;
 
 
         protected bool   autoDestoryAtClosed = AutoDestoryAtClosed;
@@ -49,53 +64,45 @@ namespace LQ
         protected Dictionary<string, Controller> ctrlsMap = new Dictionary<string, Controller>();
 
 
-       public static void  Init() {
-            // fairygui.UIConfig.modalLayerColor = "rgba(33,33,33,0.5)"
-            // // Laya.stage.on(Laya.Event.RESIZE, this , this.onStageResize)
-            // FWindow.root = new fgui.GRoot()
-            // FWindow.root.displayObject.zOrder = 999
-            // FWindow.root.setSize(Laya.stage.width, Laya.stage.height)
-            // FWindow.root.displayObject.name = "FWindow弹窗层"
-            // Laya.stage.addChild(FWindow.root.displayObject)
-            if (IsInit)
+       private static void  Init() {
+           if (IsInit)
             {
                 Debug.Log("请勿重复初始化FWindow");
-                
             }
             else
-            {
+           {
+                IsInit = true;
                 // UIConfig.modalLayerColor = new Color(33,33,33, 0.5f);
                 UIRoot= new GRoot();
                 UIRoot.displayObject.gameObject.name = "FWindow弹窗层";
                 UIRoot.SetSize(Stage.inst.width, Stage.inst.height);
                 Stage.inst.AddChild(UIRoot.displayObject);
                 UIRoot.AddRelation(UIRoot.parent, RelationType.Size);
-            }
+           }
         }
 
         public FWindow()
         {
+            if (!IsInit) 
+                Init();
+            if (!FScene.IsInit)
+                FScene.Init();
             AfterConstructorCall();
-            this.Hide();
         }
 
 
 
         private void AfterConstructorCall()
         {
-            Debug.Log("FWindow AfterConstructorCall");
-            BuildChildMap();
-            BuildControllerMap();
             SetPivot(0.5f, 0.5f);
         }
 
         public void BuildChildMap()
-        {
-            foreach (var child in this._children)
+        {        
+            if (this._children.Count > 0 && this._children[0] != null)
             {
-                if (child is GComponent)
-                {   
-                    // Debug.Log("BuildChildMap -> " + child.name);
+                foreach (var child in _children[0].asCom._children)
+                {
                     childrenMap.Add(child.name, child.asCom);   
                 }
             }
@@ -114,30 +121,10 @@ namespace LQ
         {
             if (WinDefine != null)
             {
-                try
-                {   
-                    modal = true;
-                    IsShowEffect = showPopEffect;
-                    UIPackage.AddPackage(WinDefine.pkgPath);
-                    contentPane = UIPackage.CreateObject(WinDefine.pkgName, WinDefine.componentName).asCom;
-                    if (CloseOnClickOutSide)
-                        UIRoot.ShowPopup(this);
-                    else UIRoot.ShowWindow(this);
-                    
-                    contentPane.parent.displayObject.gameObject.name += "(" + WinDefine.name + ")";
-                    
-                    //居中关联
-                    Center();
-                    AddRelation(UIRoot, RelationType.Center_Center);
-                    AddRelation(UIRoot, RelationType.Middle_Middle);
-                    __OnOpened(param);
-                    return this;
-                }
-                catch (Exception e)
-                {
-                    Debug.LogError(e);
-                    throw;
-                }
+                modal = true;
+                IsShowEffect = showPopEffect; 
+                DoShowWindow(param);
+                return this;
             }
             else
             {
@@ -146,33 +133,46 @@ namespace LQ
             return null;
         }
 
+        private void DoShowWindow(object param)
+        {
+            try
+            {
+                UIPackage.AddPackage(WinDefine.pkgPath);
+                contentPane = UIPackage.CreateObject(WinDefine.pkgName, WinDefine.componentName).asCom;
+            }
+            catch (Exception e)
+            {
+                Debug.LogError(e);
+                throw;
+            }
+           
+            if (CloseOnClickOutSide || (CloseOnClickOutSide && modal))
+                UIRoot.ShowPopup(this);
+            else 
+                UIRoot.ShowWindow(this);
+            
+            gameObject = contentPane.parent.displayObject.gameObject;
+            gameObject.name += "(" + WinDefine.name + ")";
+
+            //居中关联
+            Center();
+            AddRelation(UIRoot, RelationType.Center_Center);
+            AddRelation(UIRoot, RelationType.Middle_Middle);
+            
+            //这两个要保证要__OnOpened之前调用
+            BuildChildMap();
+            BuildControllerMap();
+            __OnOpened(param);
+        }
+
         public FWindow Show(object param = null, bool closeOther = false, bool showPopEffect = true)
         {
             if (WinDefine != null)
             {
-                try
-                {
-                    IsShowEffect = showPopEffect;
-                    modal = false;
-                    UIPackage.AddPackage(WinDefine.pkgPath);
-                    contentPane = UIPackage.CreateObject(WinDefine.pkgName, WinDefine.componentName).asCom;
-  
-                    UIRoot.ShowWindow(this);
-                    
-                    contentPane.parent.displayObject.gameObject.name += "(" + WinDefine.name + ")";
-                    
-                    //居中关联
-                    Center();
-                    AddRelation(UIRoot, RelationType.Center_Center);
-                    AddRelation(UIRoot, RelationType.Middle_Middle);
-                    __OnOpened(param);
-                    return this;
-                }
-                catch (Exception e)
-                {
-                    Debug.LogError(e);
-                    throw;
-                }
+                IsShowEffect = showPopEffect; 
+                modal = false;
+                DoShowWindow(param);
+                return this;
             }
             else
             {
@@ -193,9 +193,24 @@ namespace LQ
         {
             OnOpened(param);
         }
-
-        public void Close()
+        protected override void closeEventHandler(EventContext context)
         {
+            __Close(CloseType.Close);
+        }
+
+        private  void __Close(CloseType type = CloseType.Close)
+        {
+
+            Close(type);
+        }
+
+        /// <summary>
+        /// 关闭弹窗 重写时记得调用Base.Close()，否则不会关闭弹窗
+        /// </summary>
+        /// <param name="type"></param>
+        public virtual void Close(CloseType type = CloseType.Close)
+        {
+            closeType = type;
             Hide();
         }
 
@@ -206,14 +221,15 @@ namespace LQ
                 // 销毁 
                 Dispose();
             }
-            OnClosed();
+            OnClosed(closeType);
         }
 
         /// <summary>
         /// 给子类重写OnClosed
         /// </summary>
-        public virtual void OnClosed()
+        public virtual void OnClosed(CloseType type)
         {
+            //这个是给子类重写的，让子类在弹窗关闭后可以做一些事
         }
 
 
@@ -269,7 +285,6 @@ namespace LQ
                     base.DoHideAnimation();
                     //如果有动画,那么关闭动画播放完毕后才触发__OnClosed
                     __OnClosed();
-             
                 }));
         }
 

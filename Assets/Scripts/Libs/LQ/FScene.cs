@@ -40,7 +40,7 @@ namespace LQ
     public class FScene : GComponent
     {
         
-        protected static bool IsInit { get; private set; }
+        public static bool IsInit { get; private set; }
         public static GRoot UIRoot { get; private set; }
 
         public static bool AutoDestoryAtClosed = true;
@@ -62,18 +62,21 @@ namespace LQ
             }
             else
             {
+                IsInit = true;
                 UIRoot = new GRoot();
                 UIRoot.displayObject.gameObject.name = "FScene场景层";
                 UIRoot.SetSize(Stage.inst.width, Stage.inst.height);
                 Stage.inst.AddChild(UIRoot.displayObject);
                 UIRoot.AddRelation(UIRoot.parent, RelationType.Size);
-                FWindow.Init();
             }
         }
         
         public static T CreateFScene<T>(FSceneConfig cfg) where T: FScene
         {
-            Debug.Log("FScene 构造");
+            if (!IsInit)
+            {
+                Init();
+            }
        
             UIPackage.AddPackage(cfg.pkgPath);
             GObject obj = UIPackage.CreateObject(cfg.pkgName, cfg.componentName, typeof(T));
@@ -99,9 +102,9 @@ namespace LQ
             foreach (var child in this._children)
             {
                 if (child is GComponent)
-                {   
+                {
                     // Debug.Log("BuildChildMap -> " + child.name);
-                    childrenMap.Add(child.name, child.asCom);   
+                    childrenMap.Add(child.name, child.asCom);
                 }
             }
         }
