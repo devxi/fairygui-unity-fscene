@@ -6,14 +6,29 @@ using JetBrains.Annotations;
 using TreeEditor;
 using UnityEngine;
 using UnityEngine.UIElements;
+using Object = System.Object;
 
 namespace LQ
 {
 
     interface IDialog
     {
+        /// <summary>
+        /// 点击窗体外部空白处是否关闭窗体
+        /// </summary>
         bool CloseOnClickOutSide { get; set; }
         ISceneCfg WinDefine { get; set; }
+        /// <summary>
+        /// 以模式窗口形式弹出窗体
+        /// </summary></param>
+        /// <returns></returns>
+        FWindow Popup(object param = null, bool closeOther = false, bool showPopEffect = true);
+        /// <summary>
+        /// 以非模式窗口形式弹窗窗体
+        /// </summary>
+        FWindow Show(object param = null, bool closeOther = false, bool showPopEffect = true);
+
+        bool IsShowEffect { get; set; }
     }
     public class FWindow : FairyGUI.Window, IDialog
     {
@@ -25,7 +40,9 @@ namespace LQ
 
         public virtual bool CloseOnClickOutSide { get; set; } = true;
         public virtual ISceneCfg WinDefine { get; set; }
-        
+        public bool IsShowEffect { get; set; } = false;
+
+
         protected bool   autoDestoryAtClosed = AutoDestoryAtClosed;
         
         private Dictionary<string, GComponent> childrenMap = new Dictionary<string, GComponent>();
@@ -43,6 +60,7 @@ namespace LQ
             if (IsInit)
             {
                 Debug.Log("请勿重复初始化FWindow");
+                
             }
             else
             {
@@ -58,6 +76,7 @@ namespace LQ
         public FWindow()
         {
             AfterConstructorCall();
+            this.Hide();
         }
 
 
@@ -68,7 +87,6 @@ namespace LQ
             BuildChildMap();
             BuildControllerMap();
             SetPivot(0.5f, 0.5f);
-            modal = true;
         }
 
         public void BuildChildMap()
@@ -90,13 +108,16 @@ namespace LQ
                 ctrlsMap.Add(controller.name, controller);
             }
         }
-
-        public FWindow Popup(object param = null)
+        
+        
+        public FWindow Popup(object param = null, bool closeOther = false, bool showPopEffect = true)
         {
             if (WinDefine != null)
             {
                 try
                 {   
+                    modal = true;
+                    IsShowEffect = showPopEffect;
                     UIPackage.AddPackage(WinDefine.pkgPath);
                     contentPane = UIPackage.CreateObject(WinDefine.pkgName, WinDefine.componentName).asCom;
                     if (CloseOnClickOutSide)
@@ -124,22 +145,48 @@ namespace LQ
             }
             return null;
         }
-        
-        
 
-        public void Open(object param)
+        public FWindow Show(object param = null, bool closeOther = false, bool showPopEffect = true)
         {
-            GRoot.inst.AddChild(this);
-            //和父容器一样大
-            SetSize(parent.width, parent.height);
-            //和父容器宽高关联
-            AddRelation(parent, RelationType.Size);
-            __OnOpened(param);
+            if (WinDefine != null)
+            {
+                try
+                {
+                    IsShowEffect = showPopEffect;
+                    modal = false;
+                    UIPackage.AddPackage(WinDefine.pkgPath);
+                    contentPane = UIPackage.CreateObject(WinDefine.pkgName, WinDefine.componentName).asCom;
+  
+                    UIRoot.ShowWindow(this);
+                    
+                    contentPane.parent.displayObject.gameObject.name += "(" + WinDefine.name + ")";
+                    
+                    //居中关联
+                    Center();
+                    AddRelation(UIRoot, RelationType.Center_Center);
+                    AddRelation(UIRoot, RelationType.Middle_Middle);
+                    __OnOpened(param);
+                    return this;
+                }
+                catch (Exception e)
+                {
+                    Debug.LogError(e);
+                    throw;
+                }
+            }
+            else
+            {
+                throw new Exception("该window无配置信息 winCfg ");
+            }
+            return null;
         }
-
+        
+        /// <summary>
+        /// 给子类重写OnOpened
+        /// </summary>
         public virtual void OnOpened([CanBeNull] object param)
         {
-            Debug.Log(name + "OnOpened");
+            
         }
 
         private void __OnOpened(object param)
@@ -149,27 +196,26 @@ namespace LQ
 
         public void Close()
         {
-            if (autoDestoryAtClosed)
-            {
-                //销毁 销毁包含了RemoveFromParent
-                Dispose();
-            }
-            else
-            {   //只从父节点移除 不销毁
-                RemoveFromParent();
-            }
-            __OnClosed();
+            Hide();
         }
 
-        private void __OnClosed()
+        private  void __OnClosed()
         {
+            if (autoDestoryAtClosed)
+            {
+                // 销毁 
+                Dispose();
+            }
             OnClosed();
         }
 
+        /// <summary>
+        /// 给子类重写OnClosed
+        /// </summary>
         public virtual void OnClosed()
         {
-            
         }
+
 
 
         public void OnClickChild(string childName, EventCallback1 callback)
@@ -183,6 +229,51 @@ namespace LQ
                 Debug.LogWarning("无法为节点" + childName + "添加点击事件,找不到该子节点");
             }
         }
+
+        #region 弹窗弹出动画、关闭动画
+
+        protected override void DoShowAnimation()
+        {
+            if (!IsShowEffect)
+            {
+                base.DoShowAnimation();
+                return;
+            }
+            visible = false;
+            GTween.To(new Vector2(0, 0), new Vector2(1, 1), 0.3f)
+                .SetEase(EaseType.BackOut)
+                .OnUpdate((GTweener tweener) =>
+                {
+                    visible = true; 
+                    scale = new Vector2(tweener.value.x, tweener.value.y); 
+                    base.DoShowAnimation();
+                });
+        }
+
+        protected override void DoHideAnimation()
+        {
+            if (!IsShowEffect)
+            {
+                base.DoHideAnimation();
+                __OnClosed();
+                return;
+            }
+            GTween.To(new Vector2(1, 1), new Vector2(0, 0), 0.3f)
+                .SetTarget(this)
+                .SetEase(EaseType.Custom)
+                .OnUpdate((GTweener tweener) =>
+                {
+                    scale = new Vector2(tweener.value.x, tweener.value.y);
+                }).OnComplete((tweener =>
+                {
+                    base.DoHideAnimation();
+                    //如果有动画,那么关闭动画播放完毕后才触发__OnClosed
+                    __OnClosed();
+             
+                }));
+        }
+
+        #endregion
 
     }
 }
