@@ -1,12 +1,8 @@
 ﻿using System;
-using System.Collections;
 using System.Collections.Generic;
-using System.Diagnostics;
 using FairyGUI;
 using JetBrains.Annotations;
-using TreeEditor;
-using UnityEngine.UIElements;
-using Debug = UnityEngine.Debug;
+using UnityEngine;
 
 namespace LQ
 {
@@ -41,7 +37,7 @@ namespace LQ
     {
         
         public static bool IsInit { get; private set; }
-        public static GRoot UIRoot { get; private set; }
+        public static GComponent FSceneRoot { get; private set; }
 
         public static bool AutoDestoryAtClosed = true;
 
@@ -63,11 +59,15 @@ namespace LQ
             else
             {
                 IsInit = true;
-                UIRoot = new GRoot();
-                UIRoot.displayObject.gameObject.name = "FScene场景层";
-                UIRoot.SetSize(Stage.inst.width, Stage.inst.height);
-                Stage.inst.AddChild(UIRoot.displayObject);
-                UIRoot.AddRelation(UIRoot.parent, RelationType.Size);
+                GRoot.inst.SetContentScaleFactor(
+                    1080,
+                    1980, 
+                    UIContentScaler.ScreenMatchMode.MatchWidthOrHeight);
+                FSceneRoot = new GComponent();
+                FSceneRoot.name = FSceneRoot.displayObject.gameObject.name = "FSceneRoot";
+                GRoot.inst.AddChild(FSceneRoot);
+                FSceneRoot.SetSize(FSceneRoot.parent.width, FSceneRoot.parent.height);
+                FSceneRoot.AddRelation(FSceneRoot.parent, RelationType.Size);
             }
         }
         
@@ -119,7 +119,7 @@ namespace LQ
 
         public void Open(object param)
         {
-            UIRoot.AddChild(this);
+            FSceneRoot.AddChild(this);
             //和父容器一样大
             SetSize(parent.width, parent.height);
             //和父容器宽高关联

@@ -2,7 +2,6 @@
 using System.Collections.Generic;
 using FairyGUI;
 using JetBrains.Annotations;
-using TreeEditor;
 using UnityEngine;
 
 
@@ -28,11 +27,7 @@ namespace LQ
         /// </summary></param>
         /// <returns></returns>
         FWindow Popup(object param = null, bool closeOther = false, bool showPopEffect = true);
-        /// <summary>
-        /// 以非模式窗口形式弹窗窗体
-        /// </summary>
-        FWindow Show(object param = null, bool closeOther = false, bool showPopEffect = true);
-
+        
         /// <summary>
         /// 关闭弹窗
         /// </summary>
@@ -44,7 +39,7 @@ namespace LQ
     public class FWindow : FairyGUI.Window, IDialog
     {
         
-        public static GRoot UIRoot { get; private set; }
+        // public static GRoot UIRoot { get; private set; }
         public static bool AutoDestoryAtClosed = true;
         private static bool IsInit = false;
         
@@ -64,7 +59,7 @@ namespace LQ
         protected Dictionary<string, Controller> ctrlsMap = new Dictionary<string, Controller>();
 
 
-       private static void  Init() {
+       private static void Init() {
            if (IsInit)
             {
                 Debug.Log("请勿重复初始化FWindow");
@@ -72,12 +67,6 @@ namespace LQ
             else
            {
                 IsInit = true;
-                // UIConfig.modalLayerColor = new Color(33,33,33, 0.5f);
-                UIRoot= new GRoot();
-                UIRoot.displayObject.gameObject.name = "FWindow弹窗层";
-                UIRoot.SetSize(Stage.inst.width, Stage.inst.height);
-                Stage.inst.AddChild(UIRoot.displayObject);
-                UIRoot.AddRelation(UIRoot.parent, RelationType.Size);
            }
         }
 
@@ -122,7 +111,11 @@ namespace LQ
             if (WinDefine != null)
             {
                 modal = true;
-                IsShowEffect = showPopEffect; 
+                IsShowEffect = showPopEffect;
+                if (closeOther)
+                {
+                    GRoot.inst.CloseAllWindows();
+                }
                 DoShowWindow(param);
                 return this;
             }
@@ -145,42 +138,41 @@ namespace LQ
                 Debug.LogError(e);
                 throw;
             }
-           
+
             if (CloseOnClickOutSide || (CloseOnClickOutSide && modal))
-                UIRoot.ShowPopup(this);
-            else 
-                UIRoot.ShowWindow(this);
-            
+                GRoot.inst.ShowPopup(this);
+            else
+                GRoot.inst.ShowWindow(this);
+
             gameObject = contentPane.parent.displayObject.gameObject;
             gameObject.name += "(" + WinDefine.name + ")";
-
-            //居中关联
-            Center();
-            AddRelation(UIRoot, RelationType.Center_Center);
-            AddRelation(UIRoot, RelationType.Middle_Middle);
             
+            Center();
+            AddRelation(GRoot.inst, RelationType.Center_Center);
+            AddRelation(GRoot.inst, RelationType.Middle_Middle);
+
             //这两个要保证要__OnOpened之前调用
             BuildChildMap();
             BuildControllerMap();
             __OnOpened(param);
         }
 
-        public FWindow Show(object param = null, bool closeOther = false, bool showPopEffect = true)
-        {
-            if (WinDefine != null)
-            {
-                IsShowEffect = showPopEffect; 
-                modal = false;
-                DoShowWindow(param);
-                return this;
-            }
-            else
-            {
-                throw new Exception("该window无配置信息 winCfg ");
-            }
-            return null;
-        }
-        
+        // public FWindow Show(object param = null, bool closeOther = false, bool showPopEffect = true)
+        // {
+        //     if (WinDefine != null)
+        //     {
+        //         IsShowEffect = showPopEffect; 
+        //         modal = false;
+        //         DoShowWindow(param);
+        //         return this;
+        //     }
+        //     else
+        //     {
+        //         throw new Exception("该window无配置信息 winCfg ");
+        //     }
+        //     return null;
+        // }
+
         /// <summary>
         /// 给子类重写OnOpened
         /// </summary>
