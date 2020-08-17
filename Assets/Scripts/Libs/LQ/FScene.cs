@@ -50,7 +50,7 @@ namespace LQ
     
 
 
-        public static void Init()
+        public static void FSceneInit()
         {
             if (IsInit)
             {
@@ -65,7 +65,7 @@ namespace LQ
                     UIContentScaler.ScreenMatchMode.MatchWidthOrHeight);
                 FSceneRoot = new GComponent();
                 FSceneRoot.name = FSceneRoot.displayObject.gameObject.name = "FSceneRoot";
-                GRoot.inst.AddChild(FSceneRoot);
+                GRoot.inst.AddChildAt(FSceneRoot, 0);
                 FSceneRoot.SetSize(FSceneRoot.parent.width, FSceneRoot.parent.height);
                 FSceneRoot.AddRelation(FSceneRoot.parent, RelationType.Size);
             }
@@ -75,7 +75,7 @@ namespace LQ
         {
             if (!IsInit)
             {
-                Init();
+                FSceneInit();
             }
        
             UIPackage.AddPackage(cfg.pkgPath);

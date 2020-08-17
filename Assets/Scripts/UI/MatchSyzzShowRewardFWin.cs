@@ -33,7 +33,7 @@ namespace UI
             go.transform.localScale = new Vector3(400, 400, 400);
         }
 
-        public override void Close(CloseType type = CloseType.Close)
+        public override void Close(CloseType type = CloseType.Close, bool showCloseEffect = true)
         {
             GameObject.Destroy(go);
             base.Close();

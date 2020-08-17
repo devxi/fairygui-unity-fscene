@@ -32,14 +32,14 @@ namespace LQ
         /// 关闭弹窗
         /// </summary>
         /// <param name="type">弹窗关闭原因</param>
-        void Close(CloseType type = CloseType.Close);
+        void Close(CloseType type = CloseType.Close,bool showCloseEffect = true);
 
         bool IsShowEffect { get; set; }
     }
     public class FWindow : FairyGUI.Window, IDialog
     {
         
-        // public static GRoot UIRoot { get; private set; }
+        public static GRoot FWindowRoot { get; private set; }
         public static bool AutoDestoryAtClosed = true;
         private static bool IsInit = false;
         
@@ -59,7 +59,7 @@ namespace LQ
         protected Dictionary<string, Controller> ctrlsMap = new Dictionary<string, Controller>();
 
 
-       private static void Init() {
+       private static void FWindowInit() {
            if (IsInit)
             {
                 Debug.Log("请勿重复初始化FWindow");
@@ -67,15 +67,19 @@ namespace LQ
             else
            {
                 IsInit = true;
+                FWindowRoot = GRoot.inst;
+                // GRoot.inst.AddChildAt(FWindowRoot,1);
+                // FWindowRoot.name = FWindowRoot.displayObject.name = FWindowRoot.displayObject.gameObject.name = "FWindowRoot";
+                // FWindowRoot.ApplyContentScaleFactor();
            }
         }
 
         public FWindow()
         {
             if (!IsInit) 
-                Init();
+                FWindowInit();
             if (!FScene.IsInit)
-                FScene.Init();
+                FScene.FSceneInit();
             AfterConstructorCall();
         }
 
@@ -114,7 +118,7 @@ namespace LQ
                 IsShowEffect = showPopEffect;
                 if (closeOther)
                 {
-                    GRoot.inst.CloseAllWindows();
+                    GRoot.inst.CloseAllWindows(); 
                 }
                 DoShowWindow(param);
                 return this;
@@ -123,7 +127,6 @@ namespace LQ
             {
                 throw new Exception("该window无配置信息 winCfg ");
             }
-            return null;
         }
 
         private void DoShowWindow(object param)
@@ -140,39 +143,23 @@ namespace LQ
             }
 
             if (CloseOnClickOutSide || (CloseOnClickOutSide && modal))
-                GRoot.inst.ShowPopup(this);
+                FWindowRoot.ShowPopup(this);
             else
-                GRoot.inst.ShowWindow(this);
+                FWindowRoot.ShowWindow(this);
 
             gameObject = contentPane.parent.displayObject.gameObject;
             gameObject.name += "(" + WinDefine.name + ")";
             
             Center();
-            AddRelation(GRoot.inst, RelationType.Center_Center);
-            AddRelation(GRoot.inst, RelationType.Middle_Middle);
+            AddRelation(FWindowRoot, RelationType.Center_Center);
+            AddRelation(FWindowRoot, RelationType.Middle_Middle);
 
             //这两个要保证要__OnOpened之前调用
             BuildChildMap();
             BuildControllerMap();
             __OnOpened(param);
         }
-
-        // public FWindow Show(object param = null, bool closeOther = false, bool showPopEffect = true)
-        // {
-        //     if (WinDefine != null)
-        //     {
-        //         IsShowEffect = showPopEffect; 
-        //         modal = false;
-        //         DoShowWindow(param);
-        //         return this;
-        //     }
-        //     else
-        //     {
-        //         throw new Exception("该window无配置信息 winCfg ");
-        //     }
-        //     return null;
-        // }
-
+        
         /// <summary>
         /// 给子类重写OnOpened
         /// </summary>
@@ -200,10 +187,17 @@ namespace LQ
         /// 关闭弹窗 重写时记得调用Base.Close()，否则不会关闭弹窗
         /// </summary>
         /// <param name="type"></param>
-        public virtual void Close(CloseType type = CloseType.Close)
+        public virtual void Close(CloseType type = CloseType.Close, bool showCloseEffect = true)
         {
             closeType = type;
-            Hide();
+            if (showCloseEffect)
+                Hide();
+            else
+            {
+                HideImmediately();
+                //如果是不播放关闭动画 直接立即隐藏的，这里立即隐藏后要立即触发__OnClosed()
+                __OnClosed();
+            }
         }
 
         private  void __OnClosed()
