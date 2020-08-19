@@ -102,7 +102,7 @@ function FScene:close(ctype)
     else
         self._uiComponent:RemoveFromParent()
     end
-    self.closeType = ctype
+    self.closeType = ctype or CloseType.Close
     self:_onClosed()
 end
 
